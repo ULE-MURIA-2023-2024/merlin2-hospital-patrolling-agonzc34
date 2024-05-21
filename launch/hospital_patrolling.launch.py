@@ -26,37 +26,37 @@ from ament_index_python.packages import get_package_share_directory
 import ament_index_python
 from kant_dao.dao_factory import DaoFamilies
 from launch_ros.actions import Node
+import os
 
 
 def generate_launch_description():
 
-    planning_layer_share_dir = get_package_share_directory(
-        "merlin2_planning_layer")
-    waypoint_navigation_share_dir = get_package_share_directory(
-        "waypoint_navigation")
-    text_to_speech_share_dir = get_package_share_directory(
-        "text_to_speech")
+    planning_layer_share_dir = get_package_share_directory("merlin2_planning_layer")
+    waypoint_navigation_share_dir = get_package_share_directory("waypoint_navigation")
+    text_to_speech_share_dir = get_package_share_directory("text_to_speech")
+    hospital_patrolling = get_package_share_directory(
+        "merlin2_hospital_patrolling"
+    )
 
     #
     # ARGS
     #
     dao_family = LaunchConfiguration("dao_family")
     dao_family_cmd = DeclareLaunchArgument(
-        "dao_family",
-        default_value=str(int(DaoFamilies.ROS2)),
-        description="DAO family")
+        "dao_family", default_value=str(int(DaoFamilies.ROS2)), description="DAO family"
+    )
 
     mongo_uri = LaunchConfiguration("mongo_uri")
     mongo_uri_cmd = DeclareLaunchArgument(
         "mongo_uri",
         default_value="mongodb://localhost:27017/merlin2",
-        description="MongoDB URI")
+        description="MongoDB URI",
+    )
 
     planner = LaunchConfiguration("planner")
     planner_cmd = DeclareLaunchArgument(
-        "planner",
-        default_value="1",
-        description="PDDL planner")
+        "planner", default_value="1", description="PDDL planner"
+    )
 
     #
     # NODES
@@ -65,38 +65,60 @@ def generate_launch_description():
         package="merlin2_basic_actions",
         executable="merlin2_navigation_fsm_action",
         name="navigation",
-        parameters=[{
-            "dao_family": dao_family,
-            "mongo_uri": mongo_uri
-        }]
+        parameters=[{"dao_family": dao_family, "mongo_uri": mongo_uri}],
     )
 
-    # TODO: create the patrol action node
-    # TODO: create the mission node
+    merlin2_patrol_action_cmd = Node(
+        package="merlin2_hospital_patrolling",
+        executable="merlin2_room_patrol_fsm_action",
+        name="patrol",
+        parameters=[{"dao_family": dao_family, "mongo_uri": mongo_uri}],
+    )
+    merlin2_patrol_mission_cmd = Node(
+        package="merlin2_hospital_patrolling",
+        executable="merlin2_room_patrol_mission_node",
+        name="mission",
+        parameters=[
+            {
+                "dao_family": dao_family,
+                "mongo_uri": mongo_uri,
+                "waypoints_file": os.path.join(
+                    hospital_patrolling, "params/stretcher_room_waypoints.yaml"
+                ),
+            }
+        ],
+    )
 
     #
     # LAUNCHES
     #
     waypoint_nav_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(waypoint_navigation_share_dir, "waypoint_navigation.launch.py")),
-        launch_arguments={"wps": ament_index_python.get_package_share_directory(
-            "merlin2_hospital_patrolling") + "/params/stretcher_room_waypoints.yaml"}.items()
+            os.path.join(waypoint_navigation_share_dir, "waypoint_navigation.launch.py")
+        ),
+        launch_arguments={
+            "wps": ament_index_python.get_package_share_directory(
+                "merlin2_hospital_patrolling"
+            )
+            + "/params/stretcher_room_waypoints.yaml"
+        }.items(),
     )
 
     text_to_speech_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(text_to_speech_share_dir, "text_to_speech.launch.py"))
+            os.path.join(text_to_speech_share_dir, "text_to_speech.launch.py")
+        )
     )
 
     merlin2_planning_layer_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(planning_layer_share_dir, "merlin2_planning_layer.launch.py")),
+            os.path.join(planning_layer_share_dir, "merlin2_planning_layer.launch.py")
+        ),
         launch_arguments={
             "dao_family": dao_family,
             "mongo_uri": mongo_uri,
-            "planner": planner
-        }.items()
+            "planner": planner,
+        }.items(),
     )
 
     ld = LaunchDescription()
@@ -108,8 +130,8 @@ def generate_launch_description():
     ld.add_action(planner_cmd)
     ld.add_action(mongo_uri_cmd)
 
-    # TODO: add the patrol action node
-    # TODO: add the mission node
+    ld.add_action(merlin2_patrol_action_cmd)
+    ld.add_action(merlin2_patrol_mission_cmd)
     ld.add_action(merlin2_navigation_action_cmd)
 
     ld.add_action(text_to_speech_cmd)
