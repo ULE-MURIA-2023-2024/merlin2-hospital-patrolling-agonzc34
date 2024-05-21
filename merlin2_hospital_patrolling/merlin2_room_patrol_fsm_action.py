@@ -26,16 +26,17 @@ class Merlin2RoomPatrolAction(Merlin2FsmAction):
 
         self.__wp = PddlObjectDto(wp_type, "wp")
 
-        super().__init__("check_wp")
+        super().__init__("patrol_wp")
 
         prepare_goal_state = CbState(["valid"], self.prepare_goal)
         tts_state = self.create_state(Merlin2BasicStates.TTS)
 
-        self.add_state("PREPARING_GOAL", prepare_goal_state, {"valid": "CHECKING_WP"})
-        self.add_state("CHECKING_WP", tts_state)
+        self.add_state("PREPARING_GOAL", prepare_goal_state, {"valid": "PATROL_WP"})
+        self.add_state("PATROL_WP", tts_state)
         
 
     def prepare_goal(self, blackboard: Blackboard) -> str:
+        print(blackboard.merlin2_action_goal.objects)
         blackboard.text = (
             f"Patrolling Waypoint {blackboard.merlin2_action_goal.objects[0][-1]}"
         )
